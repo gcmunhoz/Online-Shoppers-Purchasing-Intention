@@ -1,0 +1,28 @@
+[project]
+name = "projetofase2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Gabriel", email = "gabrielcmunhoz96@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "mlflow>=3.17.1",
+    "numpy>=2.5.4",
+    "pandas>=3.0.6",
+    "scikit-learn>=1.9.1",
+    "seaborn>=0.13.2",
+]
+
+[project.scripts]
+projetofase2 = "projetofase2:main"
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
