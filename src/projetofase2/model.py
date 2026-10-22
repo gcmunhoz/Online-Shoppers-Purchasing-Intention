@@ -5,8 +5,9 @@ Dataset: Online Shoppers Purchasing Intetion
 Uso:
     python pipeline_rf_online_shoppers.py --csv online_shoppers_intention.csv"""
 
+import os
 import argparse
-
+from pathlib import Path
 import joblib
 import pandas as pd
 import numpy as np
@@ -36,6 +37,10 @@ from sklearn.preprocessing import OneHotEncoder
 RANDOM_STATE = 42
 TARGET = 'Revenue'
 
+# Caminhos relativos à pasta onde este script está (e não ao diretório de execução)
+BASE_DIR = Path(__file__).resolve().parent
+CAMINHO_DATASET = str((BASE_DIR / "../../datasets/online_shoppers_intention.csv").resolve())
+CAMINHO_MODELO = str((BASE_DIR / "../../models/rf_online_shoppers.joblib").resolve())
 
 # Colunas numéricas
 
@@ -159,14 +164,15 @@ def main(csv_path: str, out_path: str) -> None:
  
     threshold = choose_threshold(best_pipe, X_train, y_train)
     evaluate(best_pipe, X_test, y_test, threshold)
- 
+
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     joblib.dump({"pipeline": best_pipe, "threshold": threshold}, out_path)
     print(f"\nModelo salvo em: {out_path}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--csv", default="online_shoppers_intention.csv")
-    parser.add_argument("--out", default="rf_online_shoppers.joblib")
+    parser.add_argument("--csv", default=CAMINHO_DATASET)
+    parser.add_argument("--out", default=CAMINHO_MODELO)
     args = parser.parse_args()
     main(args.csv, args.out)
