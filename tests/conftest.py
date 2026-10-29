@@ -137,3 +137,14 @@ def fast_search(monkeypatch, pipeline_module):
     monkeypatch.setattr(ms, "RandomizedSearchCV", _fast)
     monkeypatch.setattr(pipeline_module, "RandomizedSearchCV", _fast)
     return _fast
+
+
+@pytest.fixture(autouse=True)
+def isolated_mlflow(monkeypatch, tmp_path):
+    """Isola o MLflow em todos os testes: cada teste usa um banco SQLite próprio
+    dentro de tmp_path (via env MLFLOW_TRACKING_URI), então nenhuma run de teste
+    vai parar na pasta mlflow_data/ do projeto. Vale também para o teste de CLI
+    (runpy), que lê a mesma variável de ambiente."""
+    uri = f"sqlite:///{(tmp_path / 'mlflow_store' / 'mlflow.db').as_posix()}"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", uri)
+    return uri
