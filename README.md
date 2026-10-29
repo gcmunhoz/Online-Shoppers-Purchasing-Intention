@@ -46,8 +46,8 @@ sobre o dataset [Online Shoppers Purchasing Intention](https://archive.ics.uci.e
 ## Instalação
 
 ```bash
-git clone <https://github.com/gcmunhoz/Online-Shoppers-Purchasing-Intention.git>
-cd projetoFase2
+git clone https://github.com/gcmunhoz/Online-Shoppers-Purchasing-Intention.git
+cd Online-Shoppers-Purchasing-Intention
 uv sync                      # cria .venv com dependências de produção + dev (lock exato)
 cp .env.example .env         # ajuste se necessário
 ```
@@ -78,28 +78,43 @@ As dependências ficam separadas no `pyproject.toml`:
 
 ## Dados com DVC
 
-O dataset está em `data/raw/online_shoppers_intention.csv` e é versionado pelo DVC
-(o git guarda só o `.dvc` com o hash). O remote padrão é a pasta local configurada em
-`.dvc/config`.
+O dataset fica em `data/raw/online_shoppers_intention.csv` e é versionado pelo DVC: o git
+guarda só o `data/raw/online_shoppers_intention.csv.dvc`, com o hash md5 do arquivo. O CSV
+em si **não está no repositório**: baixe-o do Google Drive antes de rodar o pipeline.
 
-```bash
-uv run dvc pull              # baixa dataset, splits e modelo do remote
-uv run dvc status            # mostra o que mudou em relação ao dvc.lock
-```
+### Obtendo o dataset
 
-Se o remote não estiver acessível na sua máquina, aponte para outro diretório
-(ou S3/GDrive/etc.) e coloque o CSV em `data/raw/`:
+1. Baixe `online_shoppers_intention.csv` do Google Drive:
+   <https://drive.google.com/file/d/1DXJaPOx0EuSEnptJHUtcfIy0rPfurzwQ/view?usp=sharing>
+2. Salve o arquivo exatamente em `data/raw/online_shoppers_intention.csv`.
+3. (Opcional) Confira que é a mesma versão registrada no `.dvc` — o md5 deve ser
+   `cc6ec1db03b4f10f8de52c56ff48b085`:
 
-```bash
-uv run dvc remote add -d -f armazenamento <caminho-ou-url>
-```
+   ```bash
+   uv run dvc status   # sem "changed outs" para data/raw = arquivo idêntico
+   ```
 
-Para versionar uma nova versão do dataset:
+   No PowerShell também é possível conferir diretamente:
+   `(Get-FileHash data\raw\online_shoppers_intention.csv -Algorithm MD5).Hash`
+
+4. Gere os splits e o modelo executando o pipeline (veja [Pipeline](#pipeline-dvc)):
+
+   ```bash
+   uv run dvc repro
+   ```
+
+Como o `random_state` é fixo em `configs/params.yaml`, o pipeline reproduz os mesmos
+splits e o mesmo modelo registrados no `dvc.lock`.
+
+### Nova versão do dataset
+
+Ao substituir o CSV, registre a nova versão no DVC (o `.dvc` passa a ter o novo md5) e
+reexecute o pipeline:
 
 ```bash
 uv run dvc add data/raw/online_shoppers_intention.csv
-git add data/raw/online_shoppers_intention.csv.dvc
-uv run dvc push
+uv run dvc repro
+git add data/raw/online_shoppers_intention.csv.dvc dvc.lock reports/metrics.json
 ```
 
 ## Pipeline (DVC)
@@ -120,7 +135,6 @@ uv run dvc repro             # executa só os estágios desatualizados
 uv run dvc repro --force     # reexecuta tudo (gera uma nova run no MLflow)
 uv run dvc dag               # mostra o grafo do pipeline
 uv run dvc metrics show      # métricas do último treino
-uv run dvc push              # envia dados/modelo gerados ao remote
 ```
 
 Os estágios também podem ser executados diretamente:
@@ -164,10 +178,10 @@ model.predict(X)  # já aplica o limiar escolhido no treino
 ## Docker
 
 A imagem instala as dependências de produção via `uv sync --locked --no-dev` e executa
-`preprocess && train`. O dataset é copiado para a imagem, então baixe-o antes do build:
+`preprocess && train`. O dataset é copiado para a imagem, então ele precisa estar em
+`data/raw/online_shoppers_intention.csv` antes do build (veja [Dados com DVC](#dados-com-dvc)):
 
 ```bash
-uv run dvc pull
 docker build -t projetofase2 .
 docker run --rm --env-file .env -v "$(pwd)/mlflow_data:/app/mlflow_data" projetofase2
 ```
