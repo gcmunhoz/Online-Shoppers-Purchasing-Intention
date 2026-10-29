@@ -1,34 +1,23 @@
-"""
-Fixtures compartilhadas pelos testes do pipeline Random Forest (Online Shoppers).
+"""Fixtures compartilhadas pelos testes.
 
-Estrutura esperada do projeto:
-
-    <raiz>/
-      datasets/  documents/  models/  notebooks/
-      src/projetofase2/{__init__.py, model.py}
-      tests/     <- este arquivo
-
-- Adiciona <raiz>/src ao sys.path para importar `projetofase2.model`
-  (não precisa instalar o pacote nem criar pytest.ini).
 - Gera dados sintéticos com o mesmo esquema do dataset real, para que os testes
   rodem rápido e não dependam do CSV de verdade.
+- Isola o MLflow em um banco SQLite próprio por teste (nada vai para mlflow_data/).
 """
-import importlib
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-from sklearn.model_selection import StratifiedKFold
+import yaml
+from sklearn.pipeline import Pipeline
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SRC_DIR = PROJECT_ROOT / "src"
-MODULE_NAME = "projetofase2.model"
+from projetofase2.config import MlflowSettings, Params, load_params, load_settings
+from projetofase2.data import load_raw_data, split_features_target
+from projetofase2.model import build_pipeline
+
 MONTHS = ["Feb", "Mar", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+RANDOM_STATE = 42
 
 
 # --------------------------------------------------------------------------- #
@@ -74,77 +63,86 @@ def make_shoppers_df(n: int = 600, seed: int = 0, n_duplicates: int = 30) -> pd.
     return df
 
 
+def write_params_file(tmp_path: Path, raw_csv: Path) -> Path:
+    """Arquivo de parâmetros com uma busca minúscula (2 combinações, 3 folds)."""
+    content = {
+        "random_state": RANDOM_STATE,
+        "data": {
+            "raw_path": str(raw_csv),
+            "processed_dir": str(tmp_path / "processed"),
+            "test_size": 0.2,
+        },
+        "train": {
+            "cv_splits": 3,
+            "n_iter": 2,
+            "n_jobs": 1,
+            "scoring": "average_precision",
+            "param_distributions": {"rf__n_estimators": [10, 20], "rf__max_depth": [3, 5]},
+            "model_path": str(tmp_path / "models" / "model.joblib"),
+            "metrics_path": str(tmp_path / "reports" / "metrics.json"),
+        },
+    }
+    path = tmp_path / "params.yaml"
+    path.write_text(yaml.safe_dump(content), encoding="utf-8")
+    return path
+
+
 # --------------------------------------------------------------------------- #
 # Fixtures
 # --------------------------------------------------------------------------- #
-@pytest.fixture(scope="session")
-def pipeline_module():
-    return importlib.import_module(MODULE_NAME)
-
-
 @pytest.fixture
-def shoppers_df():
+def shoppers_df() -> pd.DataFrame:
     return make_shoppers_df()
 
 
 @pytest.fixture
-def shoppers_csv(tmp_path, shoppers_df):
+def shoppers_csv(tmp_path, shoppers_df) -> Path:
     path = tmp_path / "online_shoppers_intention.csv"
     shoppers_df.to_csv(path, index=False)
     return path
 
 
 @pytest.fixture
-def clean_df(pipeline_module, shoppers_csv):
-    """DataFrame já passado por `load_data` (sem duplicatas, tipos corretos)."""
-    return pipeline_module.load_data(str(shoppers_csv))
+def clean_df(shoppers_csv) -> pd.DataFrame:
+    """DataFrame já passado por `load_raw_data` (sem duplicatas, tipos corretos)."""
+    return load_raw_data(shoppers_csv)
 
 
 @pytest.fixture
-def xy(pipeline_module, clean_df):
-    cols = (pipeline_module.NUMERIC_COLS + pipeline_module.CATEGORICAL_COLS
-            + pipeline_module.BINARY_COLS)
-    return clean_df[cols], clean_df[pipeline_module.TARGET]
+def xy(clean_df) -> tuple[pd.DataFrame, pd.Series]:
+    return split_features_target(clean_df)
 
 
 @pytest.fixture
-def small_pipeline(pipeline_module):
+def small_pipeline() -> Pipeline:
     """Pipeline real, mas com poucas árvores para os testes serem rápidos."""
-    return pipeline_module.build_pipeline().set_params(rf__n_estimators=25)
+    return build_pipeline(RANDOM_STATE).set_params(rf__n_estimators=25)
 
 
 @pytest.fixture
-def fast_search(monkeypatch, pipeline_module):
-    """Troca o RandomizedSearchCV por uma versão minúscula (2 combinações, 3 folds).
+def params_file(tmp_path, shoppers_csv) -> Path:
+    return write_params_file(tmp_path, shoppers_csv)
 
-    Mantém o fluxo real de `tune`/`main`, mas evita as 150 fits do grid original.
-    Também vale para quando o script é executado via runpy (`__main__`).
-    """
-    import sklearn.model_selection as ms
 
-    original = ms.RandomizedSearchCV
-
-    def _fast(estimator, **kwargs):
-        kwargs.update(
-            param_distributions={"rf__n_estimators": [10, 20], "rf__max_depth": [3, 5]},
-            n_iter=2,
-            cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=0),
-            n_jobs=1,
-            verbose=0,
-        )
-        return original(estimator, **kwargs)
-
-    monkeypatch.setattr(ms, "RandomizedSearchCV", _fast)
-    monkeypatch.setattr(pipeline_module, "RandomizedSearchCV", _fast)
-    return _fast
+@pytest.fixture
+def params(params_file) -> Params:
+    return load_params(params_file)
 
 
 @pytest.fixture(autouse=True)
-def isolated_mlflow(monkeypatch, tmp_path):
-    """Isola o MLflow em todos os testes: cada teste usa um banco SQLite próprio
-    dentro de tmp_path (via env MLFLOW_TRACKING_URI), então nenhuma run de teste
-    vai parar na pasta mlflow_data/ do projeto. Vale também para o teste de CLI
-    (runpy), que lê a mesma variável de ambiente."""
+def isolated_mlflow(monkeypatch, tmp_path) -> str:
+    """Cada teste usa um banco SQLite próprio em tmp_path. As variáveis de ambiente
+    têm prioridade sobre o .env do projeto, então nada vai para mlflow_data/."""
     uri = f"sqlite:///{(tmp_path / 'mlflow_store' / 'mlflow.db').as_posix()}"
     monkeypatch.setenv("MLFLOW_TRACKING_URI", uri)
+    monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "exp-teste")
+    monkeypatch.setenv("MLFLOW_MODEL_NAME", "modelo_teste")
+    monkeypatch.setenv("MLFLOW_REGISTER_MODEL", "true")
+    monkeypatch.setenv("MLFLOW_CHAMPION_ALIAS", "champion")
+    monkeypatch.setenv("MLFLOW_SELECTION_METRIC", "test_pr_auc")
     return uri
+
+
+@pytest.fixture
+def settings(isolated_mlflow) -> MlflowSettings:
+    return load_settings(env_path=None)

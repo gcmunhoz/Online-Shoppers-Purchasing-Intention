@@ -5,6 +5,16 @@ build/
 dist/
 wheels/
 *.egg-info
+.pytest_cache/
+.ruff_cache/
 
 # Virtual environments
 .venv
+
+# Configurações locais (versionar apenas o .env.example)
+.env
+
+# MLflow (banco SQLite + artefatos das runs)
+mlflow_data/
+mlruns/
+mlartifacts/

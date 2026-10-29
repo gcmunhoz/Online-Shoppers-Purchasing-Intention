@@ -1,0 +1,37 @@
+vars:
+  - configs/params.yaml
+
+stages:
+  preprocess:
+    cmd: python -m projetofase2.preprocess --params configs/params.yaml
+    deps:
+      - ${data.raw_path}
+      - src/projetofase2/config.py
+      - src/projetofase2/data.py
+      - src/projetofase2/preprocess.py
+    params:
+      - configs/params.yaml:
+          - random_state
+          - data
+    outs:
+      - ${data.processed_dir}
+
+  train:
+    cmd: python -m projetofase2.train --params configs/params.yaml
+    deps:
+      - ${data.processed_dir}
+      - src/projetofase2/config.py
+      - src/projetofase2/data.py
+      - src/projetofase2/model.py
+      - src/projetofase2/tracking.py
+      - src/projetofase2/registry.py
+      - src/projetofase2/train.py
+    params:
+      - configs/params.yaml:
+          - random_state
+          - train
+    outs:
+      - ${train.model_path}
+    metrics:
+      - ${train.metrics_path}:
+          cache: false

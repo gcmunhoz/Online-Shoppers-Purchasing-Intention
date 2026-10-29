@@ -1,23 +1,25 @@
 [project]
 name = "projetofase2"
 version = "0.1.0"
-description = "Add your description here"
+description = "Classificação da intenção de compra (Online Shoppers) com Random Forest, DVC e MLflow"
 readme = "README.md"
 authors = [
     { name = "Gabriel", email = "gabrielcmunhoz96@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "dvc>=3.67.1",
+    "joblib>=1.6.0",
     "mlflow>=3.17.1",
     "numpy>=2.5.4",
     "pandas>=3.0.6",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
     "scikit-learn>=1.9.1",
-    "seaborn>=0.13.2",
 ]
 
 [project.scripts]
-projetofase2 = "projetofase2:main"
+preprocess = "projetofase2.preprocess:main"
+train = "projetofase2.train:main"
 
 [build-system]
 requires = ["uv_build>=0.12.9,<0.13.0"]
@@ -25,5 +27,24 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "dvc>=3.67.1",
+    "ipykernel>=7.4.0",
     "pytest>=9.1.1",
+    "ruff>=0.17.3",
+    "seaborn>=0.13.2",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, pep8-naming, pyupgrade, bugbear, simplify
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+# X/X_train/X_test: convenção do scikit-learn
+ignore = ["N803", "N806"]

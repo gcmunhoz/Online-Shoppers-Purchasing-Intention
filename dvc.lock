@@ -1,0 +1,112 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python -m projetofase2.preprocess --params configs/params.yaml
+    deps:
+    - path: data/raw/online_shoppers_intention.csv
+      hash: md5
+      md5: cc6ec1db03b4f10f8de52c56ff48b085
+      size: 1072063
+    - path: src/projetofase2/config.py
+      hash: md5
+      md5: f40a51417fef904548ad4a90b6373290
+      size: 4641
+    - path: src/projetofase2/data.py
+      hash: md5
+      md5: 52d771a083d5c3e76fbb697daa83dc20
+      size: 1817
+    - path: src/projetofase2/preprocess.py
+      hash: md5
+      md5: 564b56b413724cfcd90ddbee584b265b
+      size: 1402
+    params:
+      configs/params.yaml:
+        data:
+          raw_path: data/raw/online_shoppers_intention.csv
+          processed_dir: data/processed
+          test_size: 0.2
+        random_state: 42
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: c1a309bf6062bf29bd10163a354df78c.dir
+      size: 1067059
+      nfiles: 2
+  train:
+    cmd: python -m projetofase2.train --params configs/params.yaml
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: c1a309bf6062bf29bd10163a354df78c.dir
+      size: 1067059
+      nfiles: 2
+    - path: src/projetofase2/config.py
+      hash: md5
+      md5: f40a51417fef904548ad4a90b6373290
+      size: 4641
+    - path: src/projetofase2/data.py
+      hash: md5
+      md5: 52d771a083d5c3e76fbb697daa83dc20
+      size: 1817
+    - path: src/projetofase2/model.py
+      hash: md5
+      md5: f30999b390d30239c09ece44c420d948
+      size: 5379
+    - path: src/projetofase2/registry.py
+      hash: md5
+      md5: 03eb011f32cadc73f79eee4e4e4d7b16
+      size: 1897
+    - path: src/projetofase2/tracking.py
+      hash: md5
+      md5: 95d904e174bfdcf345be607226beccd4
+      size: 5323
+    - path: src/projetofase2/train.py
+      hash: md5
+      md5: 562f7f43926f6d8d074a4a5d8721f0c8
+      size: 4357
+    params:
+      configs/params.yaml:
+        random_state: 42
+        train:
+          cv_splits: 5
+          n_iter: 30
+          n_jobs: -1
+          scoring: average_precision
+          param_distributions:
+            rf__n_estimators:
+            - 200
+            - 300
+            - 500
+            - 800
+            rf__max_depth:
+            - 
+            - 8
+            - 12
+            - 16
+            - 24
+            rf__min_samples_split:
+            - 2
+            - 5
+            - 10
+            - 20
+            rf__min_samples_leaf:
+            - 1
+            - 2
+            - 4
+            - 8
+            rf__max_features:
+            - sqrt
+            - log2
+            - 0.3
+            - 0.5
+          model_path: models/rf_online_shoppers.joblib
+          metrics_path: reports/metrics.json
+    outs:
+    - path: models/rf_online_shoppers.joblib
+      hash: md5
+      md5: 6f30689c70906065c52e93086033b14a
+      size: 29647617
+    - path: reports/metrics.json
+      hash: md5
+      md5: bc89ed541aa9d967b4f8c3c8c408b689
+      size: 354
