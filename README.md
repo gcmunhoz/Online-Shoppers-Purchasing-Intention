@@ -46,7 +46,7 @@ sobre o dataset [Online Shoppers Purchasing Intention](https://archive.ics.uci.e
 ## Instalação
 
 ```bash
-git clone <url-do-repositorio>
+git clone <https://github.com/gcmunhoz/Online-Shoppers-Purchasing-Intention.git>
 cd projetoFase2
 uv sync                      # cria .venv com dependências de produção + dev (lock exato)
 cp .env.example .env         # ajuste se necessário
